@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <title>Interaktive Schweizkarte – Deutschunterricht (B1)</title>
+
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    crossorigin=""
+  />
+
+  <style>
+    body {
+      margin: 0;
+      font-family: system-ui, sans-serif;
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    #map {
+      flex: 2;
+      height: 100%;
+    }
+
+    #sidebar {
+      flex: 1;
+      padding: 16px;
+      border-left: 1px solid #ddd;
+      background: #fafafa;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      overflow-y: auto;
+      box-sizing: border-box;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 1.3rem;
+    }
+
+    .city-info {
+      background: white;
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid #ddd;
+    }
+
+    .city-name {
+      font-weight: 600;
+      font-size: 1.1rem;
+      margin-bottom: 8px;
+    }
+
+    .city-text {
+      margin-bottom: 12px;
+      font-size: 0.95rem;
+    }
+
+    #city-image {
+      width: 100%;
+      max-height: 210px;
+      object-fit: cover;
+      border-radius: 8px;
+      margin-bottom: 8px;
+      background: #eee;
+    }
+
+    .keywords {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 4px;
+    }
+
+    .keyword {
+      background: #e3f2fd;
+      border: 1px solid #bbdefb;
+      padding: 4px 10px;
+      border-radius: 999px;
+      cursor: pointer;
+      font-size: 0.85rem;
+    }
+
+    .keyword:hover {
+      background: #bbdefb;
+    }
+
+    .exercise {
+      background: white;
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid #ddd;
+      font-size: 0.9rem;
+    }
+
+    .selected-keyword {
+      margin-top: 8px;
+      font-style: italic;
+      color: #333;
+      font-size: 0.9rem;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div id="map"></div>
+
+  <div id="sidebar">
+    <h1>Interaktive Schweizkarte – Deutsch lernen (B1)</h1>
+
+    <div id="city-container" class="city-info">
+      <img id="city-image" src="" alt="Stadtbild">
+      <div class="city-name">Wähle eine Stadt auf der Karte.</div>
+      <div class="city-text">
+        Klicke auf eine Stadt, um mehr Informationen auf Deutsch zu lesen.
+      </div>
+      <div class="keywords"></div>
+      <div id="selected-keyword" class="selected-keyword"></div>
+    </div>
+
+    <div class="exercise">
+      <h2>Grundübungen (A1–A2)</h2>
+      <ol>
+        <li>Wählt eine Stadt auf der Karte.</li>
+        <li>Lest den Text laut vor.</li>
+        <li>Klickt auf ein Schlüsselwort.</li>
+        <li>Bildet einen einfachen Satz mit diesem Wort.</li>
+      </ol>
+    </div>
+
+    <div class="exercise">
+      <h2>Zusatzübungen (B1)</h2>
+      <ul>
+        <li><strong>Diskussion:</strong> Vergleicht zwei Städte. Welche findet ihr interessanter und warum?</li>
+        <li><strong>Schreiben:</strong> Verfasst einen kurzen Text (5–6 Sätze) über eine Stadt, die ihr besuchen möchtet.</li>
+        <li><strong>Grammatik:</strong> Bildet mit jedem Schlüsselwort einen Nebensatz (z.B. „…, weil…”, „…, obwohl…”).</li>
+        <li><strong>Sprechen:</strong> Ein Schüler beschreibt eine Stadt, die anderen müssen raten, welche es ist.</li>
+      </ul>
+    </div>
+
+    <div class="exercise" id="quiz-section">
+      <h2>Quiz – Niveau B1</h2>
+      <div id="quiz-container"></div>
+      <button id="quiz-submit" style="
+        margin-top: 12px;
+        padding: 8px 12px;
+        background: #1976d2;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+      ">Überprüfen</button>
+      <div id="quiz-result" style="margin-top: 10px; font-weight: bold;"></div>
+    </div>
+
+  </div>
+
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    crossorigin="">
+  </script>
+
+  <script>
+    const cities = [
+      {
+        name: "Zürich",
+        coords: [47.3769, 8.5417],
+        thumb: "https://upload.wikimedia.org/wikipedia/commons/8/81/City_of_Z%C3%BCrich.jpg",
+        text: "Zürich ist die größte Stadt der Schweiz und gilt als ein bedeutendes Finanz- und Kulturzentrum. Die Stadt bietet eine hohe Lebensqualität und zieht jedes Jahr viele internationale Besucher an.",
+        keywords: ["Finanzzentrum", "Lebensqualität", "international"]
+      },
+      {
+        name: "Bern",
+        coords: [46.9481, 7.4474],
+        thumb: "https://upload.wikimedia.org/wikipedia/commons/6/61/Bern_Clocktower_1900.jpeg",
+        text: "Bern ist die Hauptstadt der Schweiz und bekannt für ihre gut erhaltene Altstadt, die zum UNESCO-Weltkulturerbe gehört. Die Stadt hat eine entspannte Atmosphäre und liegt malerisch an der Aare.",
+        keywords: ["UNESCO-Weltkulturerbe", "malerisch", "Atmosphäre"]
+      },
+      {
+        name: "Genf",
+        coords: [46.2044, 6.1432],
+        thumb:"https://upload.wikimedia.org/wikipedia/commons/e/e6/Views_of_Geneva.jpg",
+        text: "Genf liegt am Genfersee und ist ein internationaler Standort für Diplomatie und Wissenschaft. Viele internationale Organisationen haben hier ihren Sitz, was der Stadt ein multikulturelles Flair verleiht.",
+        keywords: ["Diplomatie", "multikulturell", "Organisationen"]
+      },
+      {
+        name: "Basel",
+        coords: [47.5596, 7.5886],
+        thumb: "https://upload.wikimedia.org/wikipedia/commons/c/cb/Rhine_Rhein_Basel_2006_871.JPG",
+        text: "Basel liegt am Rhein und ist besonders für seine Museen und seine lebendige Kunstszene bekannt. Die Stadt verbindet moderne Architektur mit historischen Gebäuden auf beeindruckende Weise.",
+        keywords: ["Kunstszene", "moderne Architektur", "beeindruckend"]
+      },
+      {
+        name: "Luzern",
+        coords: [47.0502, 8.3093],
+        thumb: "https://upload.wikimedia.org/wikipedia/commons/d/d8/00_0055_Buildings_in_Lucerne.jpg",
+        text: "Luzern ist eine der beliebtesten Touristenstädte der Schweiz. Die Kapellbrücke und der Vierwaldstättersee machen die Stadt zu einem idealen Ausgangspunkt für Ausflüge in die Alpen.",
+        keywords: ["Touristenstadt", "Ausgangspunkt", "Alpen"]
+      }
+    ];
+
+    const cityNameEl = document.querySelector("#city-container .city-name");
+    const cityTextEl = document.querySelector("#city-container .city-text");
+    const keywordsContainer = document.querySelector("#city-container .keywords");
+    const selectedKeywordEl = document.getElementById("selected-keyword");
+    const cityImageEl = document.getElementById("city-image");
+
+    const map = L.map("map").setView([46.8182, 8.2275], 8);
+
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 18
+    }).addTo(map);
+
+    function showCityInfo(city) {
+      cityNameEl.textContent = city.name;
+      cityTextEl.textContent = city.text;
+
+      cityImageEl.src = city.thumb;
+      cityImageEl.loading = "lazy";
+
+      keywordsContainer.innerHTML = "";
+      selectedKeywordEl.textContent = "";
+
+      city.keywords.forEach(word => {
+        const span = document.createElement("span");
+        span.className = "keyword";
+        span.textContent = word;
+        span.addEventListener("click", () => {
+          selectedKeywordEl.textContent = `Satz mit „${word}”: _____________________________`;
+        });
+        keywordsContainer.appendChild(span);
+      });
+    }
+
+    cities.forEach(city => {
+      const marker = L.marker(city.coords).addTo(map);
+      marker.bindPopup(city.name);
+      marker.on("click", () => showCityInfo(city));
+    });
+
+    // Quiz B1 – 5 întrebări
+    const quizQuestions = [
+      {
+        q: "Welche Stadt gilt als wichtiges Finanzzentrum?",
+        options: ["Bern", "Zürich", "Luzern"],
+        answer: "Zürich"
+      },
+      {
+        q: "Welche Stadt liegt malerisch an der Aare?",
+        options: ["Genf", "Bern", "Basel"],
+        answer: "Bern"
+      },
+      {
+        q: "Welche Stadt ist für internationale Organisationen bekannt?",
+        options: ["Genf", "Basel", "Luzern"],
+        answer: "Genf"
+      },
+      {
+        q: "Welche Stadt verbindet moderne Architektur mit historischen Gebäuden?",
+        options: ["Basel", "Zürich", "Luzern"],
+        answer: "Basel"
+      },
+      {
+        q: "Welche Stadt ist ein Ausgangspunkt für Ausflüge in die Alpen?",
+        options: ["Bern", "Luzern", "Genf"],
+        answer: "Luzern"
+      }
+    ];
+
+    function loadQuiz() {
+      const quizContainer = document.getElementById("quiz-container");
+      quizContainer.innerHTML = "";
+
+      quizQuestions.forEach((item, index) => {
+        const div = document.createElement("div");
+        div.style.marginBottom = "12px";
+
+        let html = `<strong>${index + 1}. ${item.q}</strong><br>`;
+
+        item.options.forEach(opt => {
+          html += `
+            <label style="display:block; margin-left:10px;">
+              <input type="radio" name="q${index}" value="${opt}">
+              ${opt}
+            </label>
+          `;
+        });
+
+        div.innerHTML = html;
+        quizContainer.appendChild(div);
+      });
+    }
+
+    document.getElementById("quiz-submit").addEventListener("click", () => {
+      let score = 0;
+
+      quizQuestions.forEach((item, index) => {
+        const selected = document.querySelector(`input[name="q${index}"]:checked`);
+        if (selected && selected.value === item.answer) {
+          score++;
+        }
+      });
+
+      document.getElementById("quiz-result").textContent =
+        `Ergebnis: ${score} von ${quizQuestions.length} richtig.`;
+    });
+
+    loadQuiz();
+  </script>
+
+</body>
+</html>
